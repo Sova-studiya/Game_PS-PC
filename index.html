@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Escape the Maze</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Предотвращение масштабирования при касании на мобильных */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            overflow-x: hidden;
+        }
+
+        /* Медиа-запросы для мобильных */
+        @media (max-width: 768px) {
+            body {
+                padding: 0.25rem;
+                align-items: flex-start;
+                padding-top: 1rem;
+            }
+            
+            #gameCanvas {
+                max-width: 95vw !important;
+                max-height: 95vw !important;
+            }
+        }
+
+        #gameCanvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+            display: block;
+            touch-action: none; /* Предотвращает стандартные жесты касания */
+        }
+
+        .btn-primary {
+            @apply px-4 py-2 font-semibold text-sm rounded-lg shadow-md transition duration-200 ease-in-out;
+        }
+
+        .btn-cyan {
+            @apply btn-primary bg-cyan-600 text-white hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-opacity-75;
+        }
+
+        .btn-emerald {
+            @apply btn-primary bg-emerald-600 text-white hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-75;
+        }
+        
+        .btn-quiz-option {
+            @apply block w-full text-xl py-6 px-8 font-extrabold text-white rounded-2xl shadow-xl 
+                   transition duration-300 ease-in-out cursor-pointer border-b-4 border-indigo-600
+                   mb-8;
+            min-height: 5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.4;
+            word-wrap: break-word;
+            white-space: normal;
+            background-image: linear-gradient(to right, #38bdf8, #6366f1); 
+            @apply hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/50;
+            @apply focus:outline-none focus:ring-4 focus:ring-sky-400 active:bg-indigo-600;
+        }
+        
+        .btn-quiz-option:last-child {
+            @apply mb-0;
+        }
+
+        /* Адаптивные размеры текста для мобильных */
+        @media (max-width: 640px) {
+            .btn-quiz-option {
+                font-size: 1.125rem !important; /* text-lg */
+                padding-top: 1rem !important; /* py-4 */
+                padding-bottom: 1rem !important;
+                min-height: 4rem !important;
+            }
+        }
+
+        /* Адаптивные элементы управления для мобильных */
+        .control-btn {
+            @apply w-full h-14 text-3xl font-bold text-white rounded-xl shadow-xl transition duration-100 ease-in-out focus:outline-none active:scale-95;
+            touch-action: manipulation; /* Улучшает отзывчивость касаний */
+        }
+        
+        @media (max-width: 640px) {
+            .control-btn {
+                height: 3.5rem !important;
+                font-size: 1.75rem !important;
+            }
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            overflow-y: auto;
+            padding: 1rem;
+            -webkit-overflow-scrolling: touch; /* Плавная прокрутка на iOS */
+        }
+
+        .modal-content {
+            background-color: #1e293b;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            max-width: 95%;
+            min-width: 300px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+            border: 2px solid #06b6d4;
+            margin: auto;
+        }
+        
+        @media (max-width: 640px) {
+            .modal-content {
+                padding: 1.25rem !important;
+                border-radius: 0.75rem !important;
+            }
+            
+            #quizQuestion {
+                font-size: 1.125rem !important; /* text-lg */
+                margin-bottom: 1.5rem !important; /* mb-6 */
+                line-height: 1.5 !important;
+            }
+            
+            h3 {
+                font-size: 1.5rem !important; /* text-2xl */
+                margin-bottom: 1rem !important; /* mb-4 */
+            }
+        }
+        
+        #quizOptions {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        @media (max-width: 640px) {
+            #quizOptions {
+                gap: 1rem !important;
+            }
+        }
+
+        /* Скрытие полосы прокрутки на мобильных */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* Улучшенная панель статистики для мобильных */
+        @media (max-width: 1024px) {
+            .stats-panel {
+                order: 3 !important;
+                width: 100% !important;
+                max-width: 500px !important;
+                margin: 0 auto !important;
+            }
+            
+            .canvas-container {
+                order: 1 !important;
+                width: 100% !important;
+                max-width: 500px !important;
+                margin: 0 auto 1.5rem auto !important;
+            }
+            
+            .mobile-controls {
+                order: 2 !important;
+                width: 100% !important;
+                margin-bottom: 1.5rem !important;
+            }
+        }
+
+        /* Адаптивный текст для таймера и шагов */
+        @media (max-width: 640px) {
+            #timerDisplay, #stepsDisplay {
+                font-size: 1.125rem !important;
+            }
+            
+            .text-lg {
+                font-size: 1rem !important;
+            }
+            
+            .text-xl {
+                font-size: 1.125rem !important;
+            }
+            
+            h2.text-xl {
+                font-size: 1.25rem !important;
+            }
+        }
+
+        /* Улучшенные кнопки для мобильных */
+        button {
+            touch-action: manipulation;
+            min-height: 44px; /* Минимальный размер для удобного касания */
+        }
+    </style>
+</head>
+<body class="selection:bg-cyan-800 selection:text-white">
+
+    <!-- Основной контейнер игры -->
+    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-center space-y-6 lg:space-y-0 lg:space-x-8 w-full max-w-6xl">
+
+        <!-- Панель статистики и ключей -->
+        <div class="stats-panel w-full lg:w-64 p-4 lg:p-6 bg-[#1e293b] rounded-xl shadow-lg border border-gray-700 order-2 lg:order-1">
+            <h2 class="text-lg lg:text-xl font-bold text-white mb-3 lg:mb-4 border-b pb-2 border-cyan-700">Статистика</h2>
+            
+            <div class="space-y-2 lg:space-y-3">
+                <p class="flex justify-between text-base lg:text-lg">
+                    <span>Время:</span> 
+                    <span id="timerDisplay" class="font-mono text-cyan-400 text-sm lg:text-base">00:00.0</span>
+                </p>
+                <p class="flex justify-between text-base lg:text-lg">
+                    <span>Шаги:</span> 
+                    <span id="stepsDisplay" class="font-mono text-cyan-400 text-sm lg:text-base">0</span>
+                </p>
+            </div>
+
+            <h2 class="text-lg lg:text-xl font-bold text-white mt-4 lg:mt-6 mb-2 lg:mb-3 border-b pb-2 border-cyan-700">
+                Ключи (10)
+            </h2>
+            <div id="keyIcons" class="grid grid-cols-5 gap-1 lg:gap-2">
+                <!-- Иконки ключей будут сгенерированы JS -->
+            </div>
+
+            <div class="mt-6 lg:mt-8 space-y-2 lg:space-y-3">
+                <button id="newMazeBtn" class="w-full btn-cyan py-3 lg:py-2">
+                    Новый Лабиринт
+                </button>
+                <button id="replayBtn" class="w-full btn-emerald py-3 lg:py-2">
+                    Переиграть
+                </button>
+            </div>
+        </div>
+
+        <!-- Контейнер для Canvas -->
+        <div class="canvas-container relative flex-shrink-0 w-full max-w-md lg:max-w-lg aspect-square order-1 lg:order-2 mb-4 lg:mb-0">
+            <canvas id="gameCanvas" width="700" height="700"></canvas>
+            <div id="messageOverlay" class="absolute inset-0 flex items-center justify-center text-2xl lg:text-4xl font-bold text-cyan-400 bg-black bg-opacity-70 rounded-lg hidden px-4 text-center">
+                Нажмите любую стрелку или WASD, чтобы начать!
+            </div>
+        </div>
+
+        <!-- Мобильные элементы управления -->
+        <div id="mobileControls" class="mobile-controls w-full max-w-md flex justify-center p-3 lg:hidden order-3">
+            <div class="grid grid-cols-3 gap-2 w-full max-w-xs">
+                <div class="col-start-2">
+                    <button id="upBtn" class="control-btn bg-cyan-700 hover:bg-cyan-600 active:bg-cyan-500">▲</button>
+                </div>
+                <button id="leftBtn" class="control-btn bg-cyan-700 hover:bg-cyan-600 active:bg-cyan-500">◀</button>
+                <button id="mobileNewMazeBtn" class="control-btn bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-400 text-sm lg:text-base py-3">НОВЫЙ</button>
+                <button id="rightBtn" class="control-btn bg-cyan-700 hover:bg-cyan-600 active:bg-cyan-500">▶</button>
+                <div class="col-start-2">
+                    <button id="downBtn" class="control-btn bg-cyan-700 hover:bg-cyan-600 active:bg-cyan-500">▼</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- Модальное окно для викторины -->
+    <div id="quizModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-xl lg:text-2xl font-bold text-cyan-400 mb-4 lg:mb-6 text-center">Подберите ключ!</h3>
+            <p id="quizQuestion" class="text-white text-lg lg:text-xl mb-6 lg:mb-10 text-center px-2 lg:px-4 leading-relaxed"></p>
+            <div id="quizOptions" class="space-y-0">
+                <!-- Кнопки вариантов ответа будут добавлены здесь -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно победы -->
+    <div id="victoryModal" class="modal-overlay">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl lg:text-4xl font-extrabold text-emerald-400 mb-3 lg:mb-4">ПОБЕДА!</h3>
+            <p class="text-xl lg:text-2xl text-white mb-2">Вы нашли выход.</p>
+            <p id="victoryMessage" class="text-base lg:text-lg text-cyan-300 font-semibold mb-4 lg:mb-6"></p>
+            <div class="space-y-1 lg:space-y-2">
+                <p class="text-lg lg:text-xl">Время: <span id="finalTime" class="font-mono text-emerald-400"></span></p>
+                <p class="text-lg lg:text-xl">Шаги: <span id="finalSteps" class="font-mono text-emerald-400"></span></p>
+            </div>
+            <button onclick="initGame()" class="btn-cyan mt-6 lg:mt-8 py-3 lg:py-2 w-full">
+                Начать новую игру
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 15; 
+        const CELL_SIZE = 20;
+        const ENEMY_COUNT = 5;
+        const KEY_COUNT = 10;
+        const ENEMY_MOVE_CHANCE = 0.3;
+        const COLORS = {
+            WALL: '#475569',
+            PATH: '#1e293b',
+            PLAYER: '#06b6d4',
+            PLAYER_GLOW: 'rgba(6, 182, 212, 0.6)',
+            KEY: '#fbbf24',
+            EXIT: '#10b981',
+            ENEMY: '#ef4444',
+            STATS_BG: '#1e293b'
+        };
+
+        // Данные викторины
+        const KEY_QUIZ_DATA_RAW = `
+Look! The cat ____ on the sofa.,is sleeping,sleeps,1
+They ____ football every Saturday.,play,are playing,1
+My dad always ____ coffee in the morning.,drinks,is drinking,1
+Listen! John ____ his favorite song.,is singing,sings,1
+I ____ TV right now.,am not watching,don't watch,1
+What ____ you doing now?,are,do,1
+She usually ____ her mother in the kitchen.,helps,is helping,1
+We ____ to school today because it is Sunday.,don't go,aren't going,1
+____ he like bananas?,Does,Is,1
+Every year they ____ their grandparents.,visit,are visiting,1
+The sun ____ brightly now.,is shining,shines,1
+He often ____ his keys at home.,forgets,is forgetting,1
+Be quiet! The baby ____.,is sleeping,sleeps,1
+They ____ fast food.,don't like,aren't liking,1
+Your friends ____ right now.,are studying,study,1
+We never ____ meat.,eat,are eating,1
+I ____ a very interesting book at the moment.,am reading,read,1
+Where ____ she work?,does,is,1
+Look! A big ship ____ on the sea.,is sailing,sails,1
+He ____ computer games every day.,doesn't play,isn't playing,1
+The train always ____ at 7 a.m.,leaves,is leaving,1
+____ you listen to the radio every evening?,Do,Are,1
+Right now my brother ____ a tower with blocks.,is building,builds,1
+Tom ____ a shower every morning.,has,is having,1
+They ____ a movie right now.,are watching,watch,1
+What time ____ the store open on weekdays?,does,is,1
+My parents ____ today.,aren't working,don't work,1
+She ____ a beautiful dress at the moment.,is wearing,wears,1
+We usually ____ summer holidays at the seaside.,spend,are spending,1
+____ it raining outside now?,Is,Does,1
+He ____ breakfast usually.,doesn't eat,isn't eating,1
+He always ____ to school on time.,comes,is coming,1
+They ____ on the phone right now.,are talking,talk,1
+____ I look happy today?,Do,Am,1
+The children often ____ to the library.,go,are going,1
+I ____ my phone right now.,am not using,don't use,1
+She ____ a cake every Friday.,makes,is making,1
+Listen! Who ____ at the door?,is knocking,knocks,1
+We ____ English every day.,study,are studying,1
+What ____ your mom cooking now?,is,does,1
+They ____ TV usually.,don't watch,aren't watching,1
+He always ____ his homework before dinner.,finishes,is finishing,1
+____ the dog chasing the cat right now?,Is,Does,1
+My friend ____ in a big city.,lives,is living,1
+Look! The teacher ____ on the board.,is writing,writes,1
+I ____ to bed at 10 p.m. every night.,go,am going,1
+____ you like ice cream?,Do,Are,1
+We ____ lunch at the moment.,are having,have,1
+She never ____ when she is sad.,cries,is crying,1
+What ____ you do every weekend?,do,are,1
+        `;
+
+        // Парсинг данных викторины
+        const KEY_QUIZ_DATA = KEY_QUIZ_DATA_RAW.trim().split('\n')
+            .map(line => line.trim()) 
+            .filter(line => line.length > 0) 
+            .map(line => {
+            const parts = line.split(',').map(p => p.trim());
+            
+            if (parts.length !== 4) {
+                console.error("Не удалось разобрать строку викторины:", line);
+                return null; 
+            }
+            
+            const correctIndex = parseInt(parts[3]) - 1;
+            if (isNaN(correctIndex) || correctIndex < 0 || correctIndex > 1) {
+                 console.error("Некорректный индекс ответа:", line);
+                 return null;
+            }
+            
+            return {
+                task: parts[0],
+                options: [parts[1], parts[2]],
+                correct: correctIndex
+            };
+        }).filter(item => item !== null);
+
+        if (KEY_QUIZ_DATA.length === 0) {
+            console.warn("Нет корректных данных викторины.");
+            KEY_QUIZ_DATA.push({
+                task: "Что ____ вы делаете?",
+                options: ["делаете", "делает"],
+                correct: 0
+            });
+        }
+
+        // === ПЕРЕМЕННЫЕ ИГРЫ ===
+        let canvas, ctx;
+        let maze;
+        let player = { x: 0, y: 0 };
+        let cellWidth;
+        let keys = [];
+        let collectedKeyIds = new Set();
+        let enemies = [];
+        let exit = null;
+        let gameActive = false;
+        let steps = 0;
+        let startTime;
+        let timerInterval;
+        let keysRemaining = KEY_COUNT;
+        let currentKeyId = null;
+
+        // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+
+        function generateMaze(rows, cols) {
+            class Cell {
+                constructor(x, y) {
+                    this.x = x;
+                    this.y = y;
+                    this.walls = [true, true, true, true];
+                    this.visited = false;
+                }
+            }
+
+            const grid = [];
+            for (let y = 0; y < rows; y++) {
+                const row = [];
+                for (let x = 0; x < cols; x++) {
+                    row.push(new Cell(x, y));
+                }
+                grid.push(row);
+            }
+
+            const stack = [];
+            let current = grid[0][0];
+            current.visited = true;
+            stack.push(current);
+
+            const dx = [0, 1, 0, -1];
+            const dy = [-1, 0, 1, 0];
+            const opposite = [2, 3, 0, 1];
+
+            while (stack.length > 0) {
+                current = stack.pop();
+
+                const unvisitedNeighbors = [];
+                for (let i = 0; i < 4; i++) {
+                    const nx = current.x + dx[i];
+                    const ny = current.y + dy[i];
+
+                    if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !grid[ny][nx].visited) {
+                        unvisitedNeighbors.push({ cell: grid[ny][nx], dir: i });
+                    }
+                }
+
+                if (unvisitedNeighbors.length > 0) {
+                    stack.push(current);
+
+                    const { cell: next, dir } = unvisitedNeighbors[Math.floor(Math.random() * unvisitedNeighbors.length)];
+
+                    current.walls[dir] = false;
+                    next.walls[opposite[dir]] = false;
+
+                    next.visited = true;
+                    stack.push(next);
+                }
+            }
+            return grid;
+        }
+
+        function findRandomPassableLocation() {
+            let x, y, cell;
+            do {
+                x = Math.floor(Math.random() * GRID_SIZE);
+                y = Math.floor(Math.random() * GRID_SIZE);
+                cell = maze[y][x];
+            } while (cell.x === player.x && cell.y === player.y || collectedKeyIds.has(cell.x + '-' + cell.y));
+            return { x, y };
+        }
+
+        function draw() {
+            if (!ctx) return;
+
+            ctx.fillStyle = COLORS.PATH;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const wallThickness = 1;
+            ctx.fillStyle = COLORS.WALL;
+
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = maze[y][x];
+                    const left = x * cellWidth;
+                    const top = y * cellWidth;
+
+                    if (cell.walls[0]) {
+                        ctx.fillRect(left, top, cellWidth + wallThickness, wallThickness);
+                    }
+                    if (cell.walls[1]) {
+                        ctx.fillRect(left + cellWidth - wallThickness, top, wallThickness, cellWidth + wallThickness);
+                    }
+                    if (cell.walls[2]) {
+                        ctx.fillRect(left, top + cellWidth - wallThickness, cellWidth + wallThickness, wallThickness);
+                    }
+                    if (cell.walls[3]) {
+                        ctx.fillRect(left, top, wallThickness, cellWidth + wallThickness);
+                    }
+                }
+            }
+            
+            keys.filter(k => !collectedKeyIds.has(k.id)).forEach(key => {
+                drawCircle(key.x, key.y, COLORS.KEY, cellWidth * 0.25);
+            });
+
+            if (exit) {
+                drawCircle(exit.x, exit.y, COLORS.EXIT, cellWidth * 0.35);
+            }
+            
+            enemies.forEach(enemy => {
+                drawCircle(enemy.x, enemy.y, COLORS.ENEMY, cellWidth * 0.3);
+            });
+
+            ctx.save();
+            ctx.shadowColor = COLORS.PLAYER_GLOW;
+            ctx.shadowBlur = cellWidth * 0.5;
+            drawCircle(player.x, player.y, COLORS.PLAYER, cellWidth * 0.35);
+            ctx.restore();
+        }
+
+        function drawCircle(x, y, color, radius) {
+            const centerX = x * cellWidth + cellWidth / 2;
+            const centerY = y * cellWidth + cellWidth / 2;
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const containerSize = Math.min(container.offsetWidth, container.offsetHeight);
+            
+            canvas.width = containerSize;
+            canvas.height = containerSize;
+
+            cellWidth = canvas.width / GRID_SIZE;
+
+            if (gameActive) {
+                draw();
+            }
+        }
+
+        function initializeKeys() {
+            keys = [];
+            collectedKeyIds.clear();
+            
+            const keyIconsContainer = document.getElementById('keyIcons');
+            keyIconsContainer.innerHTML = '';
+            
+            for (let i = 0; i < KEY_COUNT; i++) {
+                const pos = findRandomPassableLocation();
+                const quizIndex = i % KEY_QUIZ_DATA.length;
+
+                const key = {
+                    x: pos.x,
+                    y: pos.y,
+                    id: i,
+                    quizIndex: quizIndex
+                };
+                keys.push(key);
+
+                const icon = document.createElement('div');
+                icon.id = `key-icon-${i}`;
+                icon.className = `w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-yellow-400/30 transition-opacity duration-300`;
+                keyIconsContainer.appendChild(icon);
+            }
+        }
+
+        function initializeEnemiesAndExit() {
+            exit = findRandomPassableLocation();
+
+            enemies = [];
+            for (let i = 0; i < ENEMY_COUNT; i++) {
+                const pos = findRandomPassableLocation();
+                enemies.push({ x: pos.x, y: pos.y });
+            }
+        }
+
+        function relocateExit() {
+            exit = findRandomPassableLocation();
+        }
+
+        function updateEnemies() {
+            if (enemies.length === 0) return;
+
+            const wallDirMap = [0, 1, 2, 3];
+
+            enemies.forEach(enemy => {
+                if (enemy.y < 0 || enemy.y >= GRID_SIZE || enemy.x < 0 || enemy.x >= GRID_SIZE) {
+                     const newPos = findRandomPassableLocation();
+                     enemy.x = newPos.x;
+                     enemy.y = newPos.y;
+                     return;
+                }
+
+                if (Math.random() < ENEMY_MOVE_CHANCE) {
+                    const potentialMoves = [];
+                    const currentEnemyCell = maze[enemy.y][enemy.x];
+                    
+                    for (let i = 0; i < 4; i++) {
+                        const dir = wallDirMap[i];
+                        
+                        if (!currentEnemyCell.walls[dir]) {
+                            potentialMoves.push(i);
+                        }
+                    }
+
+                    if (potentialMoves.length > 0) {
+                        const moveIndex = potentialMoves[Math.floor(Math.random() * potentialMoves.length)];
+                        
+                        const dx_move = [0, 1, 0, -1];
+                        const dy_move = [-1, 0, 1, 0];
+
+                        enemy.x += dx_move[moveIndex];
+                        enemy.y += dy_move[moveIndex];
+
+                        if (enemy.x === player.x && enemy.y === player.y) {
+                            relocateExit();
+                        }
+                    }
+                }
+            });
+            draw();
+        }
+
+        function handleQuizAnswer(isCorrect) {
+            document.getElementById('quizModal').style.display = 'none';
+            gameActive = true;
+
+            if (isCorrect) {
+                collectedKeyIds.add(currentKeyId);
+                keysRemaining--;
+
+                const icon = document.getElementById(`key-icon-${currentKeyId}`);
+                if (icon) {
+                    icon.classList.remove('bg-yellow-400/30');
+                    icon.classList.add('bg-yellow-400');
+                }
+
+                if (keysRemaining === 0) {
+                    initializeEnemiesAndExit();
+                }
+
+            } else {
+                const keyIndex = keys.findIndex(k => k.id === currentKeyId);
+                if (keyIndex !== -1) {
+                    const newPos = findRandomPassableLocation();
+                    keys[keyIndex].x = newPos.x;
+                    keys[keyIndex].y = newPos.y;
+                    
+                    keys[keyIndex].quizIndex = Math.floor(Math.random() * KEY_QUIZ_DATA.length);
+                }
+            }
+
+            draw();
+            currentKeyId = null;
+        }
+
+        function showQuizModal(key) {
+            gameActive = false;
+            currentKeyId = key.id;
+
+            if (key.quizIndex >= KEY_QUIZ_DATA.length) {
+                 console.error(`Ошибка: quizIndex ${key.quizIndex} находится за пределами диапазона.`);
+                 handleQuizAnswer(false);
+                 return;
+            }
+
+            const quiz = KEY_QUIZ_DATA[key.quizIndex];
+            
+            document.getElementById('quizQuestion').textContent = `Выберите правильный вариант: "${quiz.task}"`;
+            
+            const optionsContainer = document.getElementById('quizOptions');
+            optionsContainer.innerHTML = '';
+
+            quiz.options.forEach((option, index) => {
+                const btn = document.createElement('button');
+                btn.innerHTML = `<span>${option}</span>`;
+                btn.className = 'btn-quiz-option';
+
+                const isCorrect = index === quiz.correct;
+                btn.onclick = () => handleQuizAnswer(isCorrect);
+                
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('quizModal').style.display = 'flex';
+        }
+
+        function movePlayer(dx, dy, wallIndex) {
+            if (!gameActive) return;
+
+            const currentCell = maze[player.y][player.x];
+            if (currentCell.walls[wallIndex]) {
+                return;
+            }
+
+            player.x += dx;
+            player.y += dy;
+            steps++;
+            document.getElementById('stepsDisplay').textContent = steps;
+
+            const key = keys.find(k => k.x === player.x && k.y === player.y && !collectedKeyIds.has(k.id));
+            if (key) {
+                showQuizModal(key);
+            }
+
+            if (enemies.length > 0) {
+                const enemyHit = enemies.some(e => e.x === player.x && e.y === player.y);
+                if (enemyHit) {
+                    relocateExit();
+                }
+            }
+
+            if (exit && player.x === exit.x && player.y === exit.y) {
+                stopTimer();
+                showVictoryModal();
+            }
+
+            draw();
+        }
+
+        function initGame() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            if (KEY_QUIZ_DATA.length === 0) {
+                 document.getElementById('messageOverlay').textContent = "ОШИБКА: Вопросы викторины не загружены.";
+                 document.getElementById('messageOverlay').style.display = 'flex';
+                 gameActive = false;
+                 stopTimer();
+                 return;
+            }
+
+            maze = generateMaze(GRID_SIZE, GRID_SIZE);
+            player = { x: 0, y: 0 };
+            steps = 0;
+            keysRemaining = KEY_COUNT;
+            exit = null;
+            enemies = [];
+            currentKeyId = null;
+
+            document.getElementById('stepsDisplay').textContent = 0;
+            document.getElementById('timerDisplay').textContent = '00:00.0';
+            document.getElementById('messageOverlay').style.display = 'flex';
+            document.getElementById('messageOverlay').textContent = 'Нажмите любую стрелку или WASD, чтобы начать!';
+            document.getElementById('quizModal').style.display = 'none';
+            document.getElementById('victoryModal').style.display = 'none';
+            document.getElementById('keyIcons').innerHTML = '';
+            
+            initializeKeys();
+            
+            resizeCanvas();
+            window.removeEventListener('resize', resizeCanvas);
+            window.addEventListener('resize', resizeCanvas);
+
+            // Обработчик для мобильных устройств: предотвращение масштабирования
+            document.addEventListener('touchmove', function(e) {
+                if(e.scale !== 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            stopTimer();
+            gameActive = false;
+            
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(gameLoop, 100);
+            draw();
+        }
+
+        function gameLoop() {
+            if (!gameActive) {
+                if (enemies.length > 0) {
+                     updateEnemies();
+                }
+                return;
+            }
+
+            if (startTime) {
+                const elapsed = Date.now() - startTime;
+                const totalSeconds = elapsed / 1000;
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = Math.floor(totalSeconds % 60);
+                const decisecond = Math.floor((totalSeconds * 10) % 10);
+
+                const timerText = 
+                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${decisecond}`;
+                document.getElementById('timerDisplay').textContent = timerText;
+            }
+
+            updateEnemies();
+        }
+
+        function startTimer() {
+            if (startTime) return;
+            startTime = Date.now();
+        }
+
+        function stopTimer() {
+            startTime = null;
+        }
+
+        function showVictoryModal() {
+            gameActive = false;
+            
+            let finalTimeText = '00:00.0';
+            if (startTime) {
+                const elapsed = Date.now() - startTime;
+                const totalSeconds = elapsed / 1000;
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                
+                finalTimeText = `${String(minutes).padStart(2, '0')}:${seconds.toFixed(1).padStart(4, '0')}`;
+            }
+            
+            document.getElementById('finalTime').textContent = finalTimeText;
+            document.getElementById('finalSteps').textContent = steps;
+            document.getElementById('victoryMessage').textContent = "Perfect route!";
+
+            document.getElementById('victoryModal').style.display = 'flex';
+        }
+
+        function handleMoveButton(key) {
+             if (!canvas || !ctx) return;
+            handleKeyDown({ key: key, preventDefault: () => {} });
+        }
+
+        function handleKeyDown(e) {
+            if (document.getElementById('quizModal').style.display === 'flex' || 
+                document.getElementById('victoryModal').style.display === 'flex') {
+                return; 
+            }
+            
+            if (!canvas || !ctx) return;
+
+            if (!gameActive) {
+                document.getElementById('messageOverlay').style.display = 'none';
+                gameActive = true;
+                startTimer();
+            }
+
+            let dx = 0;
+            let dy = 0;
+            let wallIndex = -1;
+
+            switch (e.key.toLowerCase()) {
+                case 'arrowup':
+                case 'w':
+                    dy = -1;
+                    wallIndex = 0;
+                    break;
+                case 'arrowright':
+                case 'd':
+                    dx = 1;
+                    wallIndex = 1;
+                    break;
+                case 'arrowdown':
+                case 's':
+                    dy = 1;
+                    wallIndex = 2;
+                    break;
+                case 'arrowleft':
+                case 'a':
+                    dx = -1;
+                    wallIndex = 3;
+                    break;
+                default:
+                    return;
+            }
+
+            if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(e.key.toLowerCase())) {
+                e.preventDefault(); 
+            }
+            
+            if (wallIndex !== -1) {
+                 movePlayer(dx, dy, wallIndex);
+            }
+        }
+
+        // === ГЛАВНЫЙ ЗАПУСК ===
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('newMazeBtn').onclick = initGame;
+            document.getElementById('replayBtn').onclick = initGame;
+
+            document.addEventListener('keydown', handleKeyDown);
+
+            document.getElementById('upBtn').onclick = () => handleMoveButton('w');
+            document.getElementById('downBtn').onclick = () => handleMoveButton('s');
+            document.getElementById('leftBtn').onclick = () => handleMoveButton('a');
+            document.getElementById('rightBtn').onclick = () => handleMoveButton('d');
+            document.getElementById('mobileNewMazeBtn').onclick = initGame;
+
+            initGame();
+        });
+
+    </script>
+</body>
+</html>
